@@ -1,51 +1,136 @@
-package com.mcupdater.examplemod;
+package com.example.catmod;
 
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.Mod.EventHandler;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.common.config.Configuration;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import net.minecraft.client.entity.player.AbstractClientPlayerEntity;
+import net.minecraft.client.renderer.entity.model.PlayerModel;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.client.event.InputEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.entity.player.PlayerSleepInBedEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
+import net.minecraftforge.registries.ObjectHolder;
 
-import java.io.File;
+import static com.mojang.brigadier.arguments.BoolArgumentType.bool;
+import static com.mojang.brigadier.arguments.BoolArgumentType.getBool;
+import static com.mojang.brigadier.builder.LiteralArgumentBuilder.literal;
+import static net.minecraftforge.fml.server.ServerLifecycleHooks.getCurrentServer;
 
-@Mod(modid = Version.MOD_ID, useMetadata = true)
-public class ExampleMod {
-    static final Logger  LOGGER  = LogManager.getFormatterLogger(Version.MOD_ID);
-    static final Boolean DEV     = Boolean.parseBoolean( System.getProperty("development", "false") );
+@Mod(CatMod.MOD_ID)
+@Mod.EventBusSubscriber(modid = CatMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+public class CatMod {
+    public static final String MOD_ID = "catmod";
+    private static boolean isPlayerCat = true; // Set to true by default
 
-    public static ModMetadata metadata;
+    @ObjectHolder(MOD_ID)
+    public static final Item CAT_ITEM = null;
 
-    public static File          baseDir;
-    public static Configuration config;
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    public static class ForgeEvents {
+        @SubscribeEvent
+        public static void onPlayerTick(PlayerTickEvent event) {
+            PlayerEntity player = event.player;
+            if (player instanceof AbstractClientPlayerEntity) {
+                AbstractClientPlayerEntity clientPlayer = (AbstractClientPlayerEntity) player;
+                if (isPlayerCat) {
+                    // Change player model to cat model
+                    PlayerModel<AbstractClientPlayerEntity> model = new CatPlayerModel<>(0);
+                    clientPlayer.setModel(model);
+                } else {
+                    // Change player model back to default
+                    PlayerModel<AbstractClientPlayerEntity> model = new PlayerModel<>(0, false);
+                    clientPlayer.setModel(model);
+                }
+            }
+        }
 
-    @EventHandler
-    public void preInit(FMLPreInitializationEvent event)
-    {
-        baseDir = new File(event.getModConfigurationDirectory(), Version.MOD_ID);
-        config  = new Configuration( event.getSuggestedConfigurationFile() );
+        @SubscribeEvent
+        public static void onKeyInput(InputEvent.KeyInputEvent event) {
+            if (event.getAction() == GLFW.GLFW_PRESS && event.getKey() == GLFW.GLFW_KEY_X) {
+                PlayerEntity player = Minecraft.getInstance().player;
+                if (player != null) {
+                    BlockPos pos = player.getPosition();
+                    player.trySleep(pos);
+                }
+            }
+        }
 
-        if ( !baseDir.exists() )
-            baseDir.mkdir();
+        @SubscribeEvent
+        public static void onPlayerJoinWorld(PlayerEvent.PlayerLoggedInEvent event) {
+            if (event.getPlayer() instanceof AbstractClientPlayerEntity) {
+                isPlayerCat = true;
+            }
+        }
     }
 
-    @EventHandler
-    public void init(FMLInitializationEvent event)
-    {
-        // Need events? Uncomment these:
-        //MinecraftForge.EVENT_BUS.register(this);
-        //FMLCommonHandler.instance().bus().register(this);
-        //LOGGER.debug("Registered events");
-
-        LOGGER.info("Loaded version %s", Version.VERSION);
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    public static class ServerEvents {
+        @SubscribeEvent
+        public static void onServerStarting(FMLServerStartingEvent event) {
+            CommandDispatcher<CommandSource> dispatcher = event.getCommandDispatcher();
+            dispatcher.register(literal("cat").executes(CatMod::catCommand).requires((source) -> source.hasPermissionLevel(3)));
+        }
     }
 
-    @EventHandler
-    public void postInit(FMLPostInitializationEvent event)
-    {
+    private static int catCommand(CommandContext<CommandSource> context) throws CommandSyntaxException {
+        isPlayerCat = getBool(context, "toggle");
+        return Command.SINGLE_SUCCESS;
+    }
 
+    public static class Command {
+        public static final int SINGLE_SUCCESS = 1;
+
+        public static int execute(CommandContext<CommandSource> context) throws CommandSyntaxException {
+            PlayerEntity player = context.getSource().asPlayer();
+            isPlayerCat = !isPlayerCat;
+            if (isPlayerCat) {
+                // Change player model to cat model
+                PlayerModel<AbstractClientPlayerEntity> model = new CatPlayerModel<>(0);
+                ((AbstractClientPlayerEntity) player).setModel(model);
+            } else {
+                // Change player model back to default
+                PlayerModel<AbstractClientPlayerEntity> model = new PlayerModel<>(0, false);
+                ((AbstractClientPlayerEntity) player).setModel(model);
+            }
+            return SINGLE_SUCCESS;
+        }
+    }
+
+    @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
+    public static class ModEvents {
+        @SubscribeEvent
+        public static void onRegisterCommands(RegisterCommandsEvent event) {
+            CommandDispatcher<CommandSource> dispatcher = event.getDispatcher();
+            dispatcher.register(literal("cat")
+                    .executes(context -> Command.execute(context))
+                    .requires(source -> source.hasPermissionLevel(3))
+                    .then(argument("toggle", bool())
+                            .executes(context -> catCommand(context, "toggle")))
+            );
+        }
+    }
+
+    private static int catCommand(CommandContext<CommandSource> context, String toggle) throws CommandSyntaxException {
+        boolean isCat = getBool(context, toggle);
+        isPlayerCat = isCat;
+        PlayerEntity player = context.getSource().asPlayer();
+        if (isPlayerCat) {
+            // Change player model to cat model
+            PlayerModel<AbstractClientPlayerEntity> model = new CatPlayerModel<>(0);
+            ((AbstractClientPlayerEntity) player).setModel(model);
+        } else {
+            // Change player model back to default
+            PlayerModel<AbstractClientPlayerEntity> model = new PlayerModel<>(0, false);
+            ((AbstractClientPlayerEntity) player).setModel(model);
+        }
+        return Command.SINGLE_SUCCESS;
     }
 }
