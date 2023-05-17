@@ -1,2 +1,2 @@
-# forge-mod-template
-A basic template for a Minecraft Forge mod.
+# PurrfectMod by QuickMash Studios
+A mod that locks the player to be a cat
