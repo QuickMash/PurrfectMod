@@ -1,16 +1,16 @@
 [
-{
-  "modid": "ExampleMod",
-  "name": "Example Mod",
-  "description": "",
-  "version": "${version}",
-  "mcversion": "${mcversion}",
-  "url": "",
-  "updateUrl": "",
-  "authorList": ["allaryin", "smbarbour"],
-  "credits": "",
-  "logoFile": "",
-  "screenshots": [],
-  "dependencies": []
-}
+  {
+    "modid": "purrfectmod",
+    "name": "PurrfectMod",
+    "description": "Embrace your inner feline and transform into adorable cats in Minecraft.",
+    "version": "1.0.0",
+    "mcversion": "1.16.5",
+    "url": "https://github.com/QuickMash/PurrfectMod",
+    "updateUrl": "",
+    "authorList": ["Tanner"],
+    "credits": "QuickMash Studios",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
 ]
